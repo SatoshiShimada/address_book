@@ -4,10 +4,12 @@
 #include <string.h>
 
 enum {
-	INPUT = 1,
-	SHOW,
+	SHOW = 1,
+	INPUT,
 	EDIT,
 	DELETE,
+	SEARCH,
+	EXIT,
 } MODE_SELECT;
 
 struct address_data {
@@ -27,18 +29,27 @@ int address(void)
 {
 	struct address_data data;
 
-	switch(menu()) {
-	case INPUT:
-		input_data(&data);
-		append_data_to_file(data);
-		break;
-	case SHOW:
-		show_data();
-		break;
-	case EDIT:
-		break;
-	case DELETE:
-		break;
+	for(;;) {
+		switch(menu()) {
+		case INPUT:
+			input_data(&data);
+			append_data_to_file(data);
+			break;
+		case SHOW:
+			show_data();
+			break;
+		case EDIT:
+			break;
+		case DELETE:
+			break;
+		case SEARCH:
+			break;
+		case EXIT:
+			exit(0);
+			break;
+		default:
+			break;
+		}
 	}
 
 	return 0;
@@ -51,10 +62,12 @@ int menu(void)
 
 	do {
 		printf("Please choose mode.\n");
-		printf("1:Input, 2:Show, 3:Edit, 4:Delete\n");
+		printf(
+			"1:Show, 2:Input, 3:Edit, 4:Delete, 5:Search\n"
+			"6:Exit\n");
 		fgets(buf, sizeof(buf), stdin);
 		ret = atoi(buf);
-	} while(!(ret >= 1 && ret <= 4));
+	} while(!(ret >= 1 && ret <= 6));
 	return ret;
 }
 
