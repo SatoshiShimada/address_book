@@ -202,7 +202,8 @@ int search(void)
 		return -1;
 	}
 
-	for(match_flag = 0;;) {
+	for(;;) {
+		match_flag = 0;
 		if(fgets(buf, sizeof(buf), fp) == 0) break;
 		data = decode_data(buf);
 		switch(type) {
@@ -236,12 +237,30 @@ struct address_data decode_data(char *str)
 	char *p, *begin;
 
 	p = strchr(str, ',');
+	if(p == NULL) {
+		ret.no = 0;
+		ret.name[0] = '\0';
+		ret.address[0] = '\0';
+		return ret;
+	}
 	*p = '\0';
 	begin = ++p;
 	ret.no = atoi(str);
 	p = strchr(begin, ',');
+	if(p == NULL) {
+		ret.no = 0;
+		ret.name[0] = '\0';
+		ret.address[0] = '\0';
+		return ret;
+	}
 	*p = '\0';
 	strcpy(ret.name, begin);
+	if(p == NULL) {
+		ret.no = 0;
+		ret.name[0] = '\0';
+		ret.address[0] = '\0';
+		return ret;
+	}
 	begin = ++p;
 	p = strchr(begin, '\n');
 	*p = '\0';
