@@ -136,6 +136,7 @@ int search(void)
 {
 	int type;
 	int match_flag = 0;
+	int count;
 	char buf[1024];
 	char input_flag = 0;
 	FILE *fp;
@@ -202,7 +203,7 @@ int search(void)
 		return -1;
 	}
 
-	for(;;) {
+	for(count = 0;;) {
 		match_flag = 0;
 		if(fgets(buf, sizeof(buf), fp) == 0) break;
 		data = decode_data(buf);
@@ -221,11 +222,18 @@ int search(void)
 			break;
 		}
 		if(match_flag != 0) {
+			count++;
 			puts("=========================");
 			puts("Match data!");
-			printf("%d,%s,%s\n", data.no, data.name, data.address);
+			printf("ID : Name : Address\n");
+			printf("%d : %s : %s\n", data.no, data.name, data.address);
 			puts("=========================");
 		}
+	}
+	if(count == 0) {
+		puts("=========================");
+		puts("Not found!");
+		puts("=========================");
 	}
 	fclose(fp);
 	return 0;
