@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 enum {
 	SHOW = 1,
@@ -10,6 +11,7 @@ enum {
 	DELETE,
 	SEARCH,
 	EXIT,
+	CONFIG,
 } MODE_SELECT;
 
 struct address_data {
@@ -18,37 +20,51 @@ struct address_data {
 	char address[1024];
 };
 
-int menu(void);
-int input_data(struct address_data *);
-int append_data_to_file(struct address_data);
-int show_data(void);
-int search(void);
-struct address_data decode_data(char *);
+typedef struct {
+	char filename[100];
+	int  last_id;
+} ADDRESS_BOOK;
 
-const char *filename = "address.txt";
+/* Function prototype */
+int menu(void);
+int input_data(ADDRESS_BOOK *, struct address_data *);
+int append_data_to_file(ADDRESS_BOOK, struct address_data);
+int load_file(ADDRESS_BOOK *config);
+int show_data(ADDRESS_BOOK);
+int search(ADDRESS_BOOK);
+struct address_data decode_data(char *);
 
 int address(void)
 {
 	struct address_data data;
+	ADDRESS_BOOK address_config;
+
+	/* initialize config of address book */
+	strcpy(address_config.filename, "address.txt");
+	address_config.last_id = 1;
+
+	load_file(&address_config);
 
 	for(;;) {
 		switch(menu()) {
 		case INPUT:
-			input_data(&data);
-			append_data_to_file(data);
+			input_data(&address_config, &data);
+			append_data_to_file(address_config, data);
 			break;
 		case SHOW:
-			show_data();
+			show_data(address_config);
 			break;
 		case EDIT:
 			break;
 		case DELETE:
 			break;
 		case SEARCH:
-			search();
+			search(address_config);
 			break;
 		case EXIT:
 			exit(0);
+			break;
+		case CONFIG:
 			break;
 		default:
 			break;
@@ -67,14 +83,14 @@ int menu(void)
 		printf("Please choose mode.\n");
 		printf(
 			"1:Show, 2:Input, 3:Edit, 4:Delete, 5:Search, "
-			"6:Exit\n");
+			"6:Exit, 7:config\n");
 		fgets(buf, sizeof(buf), stdin);
 		ret = atoi(buf);
-	} while(!(ret >= 1 && ret <= 6));
+	} while(!(ret >= 1 && ret <= 7));
 	return ret;
 }
 
-int input_data(struct address_data *data)
+int input_data(ADDRESS_BOOK *config, struct address_data *data)
 {
 	char buf[1024];
 	char *str;
@@ -89,14 +105,15 @@ int input_data(struct address_data *data)
 	for(str = buf; *str != '\0'; str++)
 		if(*str == '\n') *str = '\0';
 	strncpy(data->address, buf, sizeof(data->address));
-	data->no = 1;
+	data->no = ++config->last_id;
 
 	return 0;
 }
 
-int append_data_to_file(struct address_data data)
+int append_data_to_file(ADDRESS_BOOK config, struct address_data data)
 {
 	FILE *fp;
+	char *filename = config.filename;
 
 	fp = fopen(filename, "a");
 	if(!fp) {
@@ -111,10 +128,30 @@ int append_data_to_file(struct address_data data)
 	return 0;
 }
 
-int show_data(void)
+int load_file(ADDRESS_BOOK *config)
 {
 	FILE *fp;
 	char buf[1024];
+	char *filename = config->filename;
+
+	fp = fopen(filename, "r");
+	if(!fp) {
+		fprintf(stderr, "Error: file open [%s]\n", filename);
+		return -1;
+	}
+	while(1) {
+		if(fgets(buf, sizeof(buf), fp) == 0) break;
+		config->last_id = atoi(buf);
+	}
+	fclose(fp);
+	return 0;
+}
+
+int show_data(ADDRESS_BOOK config)
+{
+	FILE *fp;
+	char buf[1024];
+	char *filename = config.filename;
 
 	fp = fopen(filename, "r");
 	if(!fp) {
@@ -132,14 +169,16 @@ int show_data(void)
 	return 0;
 }
 
-int search(void)
+int search(ADDRESS_BOOK config)
 {
 	int type;
 	int match_flag = 0;
 	int count;
+	int i;
 	char buf[1024];
 	char input_flag = 0;
 	FILE *fp;
+	char *filename = config.filename;
 
 	struct address_data search, data;
 	enum {
@@ -215,6 +254,13 @@ int search(void)
 		case NAME:
 			if(!strcmp(search.name, data.name))
 				match_flag = 1;
+			else {
+				for(i = 0; search.name[i] != '\0'; i++) {
+					search.name[i] = tolower(search.name[i]);
+				}
+				if(!strcmp(search.name, data.name))
+					match_flag = 1;
+			}
 			break;
 		case ADDRESS:
 			if(!strcmp(search.address, data.address))
