@@ -255,10 +255,11 @@ int search(ADDRESS_BOOK config)
 			if(!strcmp(search.name, data.name))
 				match_flag = 1;
 			else {
-				for(i = 0; search.name[i] != '\0'; i++) {
-					search.name[i] = tolower(search.name[i]);
+				for(i = 0; data.name[i] != '\0'; i++) {
+					buf[i] = tolower(data.name[i]);
 				}
-				if(!strcmp(search.name, data.name))
+				buf[i] = '\0';
+				if(!strcmp(search.name, buf))
 					match_flag = 1;
 			}
 			break;
