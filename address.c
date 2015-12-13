@@ -4,6 +4,8 @@
 #include <string.h>
 #include <ctype.h>
 
+const int END_OF_PHONE_NUMBER = -1;
+
 enum {
 	SHOW = 1,
 	INPUT,
@@ -12,12 +14,14 @@ enum {
 	SEARCH,
 	EXIT,
 	CONFIG,
+	STATUS,
 } MODE_SELECT;
 
 struct address_data {
-	int no;
+	int  no;
 	char name[1024];
 	char address[1024];
+	int  phone[20];
 };
 
 typedef struct {
@@ -32,6 +36,7 @@ int append_data_to_file(ADDRESS_BOOK, struct address_data);
 int load_file(ADDRESS_BOOK *config);
 int show_data(ADDRESS_BOOK);
 int search(ADDRESS_BOOK);
+int show_status(ADDRESS_BOOK config);
 struct address_data decode_data(char *);
 
 int address(void)
@@ -66,6 +71,9 @@ int address(void)
 			break;
 		case CONFIG:
 			break;
+		case STATUS:
+			show_status(address_config);
+			break;
 		default:
 			break;
 		}
@@ -83,10 +91,10 @@ int menu(void)
 		printf("Please choose mode.\n");
 		printf(
 			"1:Show, 2:Input, 3:Edit, 4:Delete, 5:Search, "
-			"6:Exit, 7:config\n");
+			"6:Exit, 7:Config, 8:Status\n");
 		fgets(buf, sizeof(buf), stdin);
 		ret = atoi(buf);
-	} while(!(ret >= 1 && ret <= 7));
+	} while(!(ret >= 1 && ret <= 8));
 	return ret;
 }
 
@@ -94,6 +102,8 @@ int input_data(ADDRESS_BOOK *config, struct address_data *data)
 {
 	char buf[1024];
 	char *str;
+	char conv[2] = "0";
+	int i;
 
 	printf("Enter name: ");
 	fgets(buf, sizeof(buf), stdin);
@@ -106,6 +116,13 @@ int input_data(ADDRESS_BOOK *config, struct address_data *data)
 		if(*str == '\n') *str = '\0';
 	strncpy(data->address, buf, sizeof(data->address));
 	data->no = ++config->last_id;
+	printf("Enter phone number: ");
+	fgets(buf, sizeof(buf), stdin);
+	for(i = 0; buf[i] != '\0'; i++) {
+		conv[0] = buf[i];
+		data->phone[i] = atoi(conv);
+		if(i > 12) break;
+	}
 
 	return 0;
 }
@@ -114,16 +131,21 @@ int append_data_to_file(ADDRESS_BOOK config, struct address_data data)
 {
 	FILE *fp;
 	char *filename = config.filename;
+	int i;
 
 	fp = fopen(filename, "a");
 	if(!fp) {
 		fprintf(stderr, "Error: file open [%s]\n", filename);
 		return -1;
 	}
-	fprintf(fp, "%d,%s,%s\n",
+	fprintf(fp, "%d,%s,%s,",
 		data.no,
 		data.name,
 		data.address);
+	for(i = 0; i < 12; i++) {
+		fprintf(fp, "%d", data.phone[i]);
+	}
+	fprintf(fp, "\n");
 	fclose(fp);
 	return 0;
 }
@@ -173,6 +195,7 @@ int search(ADDRESS_BOOK config)
 {
 	int type;
 	int match_flag = 0;
+	int phone_flag = 0;
 	int count;
 	int i;
 	char buf[1024];
@@ -185,12 +208,13 @@ int search(ADDRESS_BOOK config)
 		ID,
 		NAME,
 		ADDRESS,
+		PHONE,
 	};
 
 	do {
 		puts(
 			"select search type\n"
-			"ID, Name, Address");
+			"[ID, Name, Address, Phone]");
 		fgets(buf, sizeof(buf), stdin);
 		buf[strlen(buf) - 1] = '\0';
 		if(!strcmp(buf, "id") |
@@ -207,6 +231,11 @@ int search(ADDRESS_BOOK config)
 		!strcmp(buf, "Address") |
 		!strcmp(buf, "ADDRESS")) {
 			type = ADDRESS;
+			input_flag = 1;
+		} else if(!strcmp(buf, "phone") |
+		!strcmp(buf, "Phone") |
+		!strcmp(buf, "PHONE")) {
+			type = PHONE;
 			input_flag = 1;
 		}
 	} while(input_flag == 0);
@@ -234,6 +263,15 @@ int search(ADDRESS_BOOK config)
 		buf[strlen(buf) - 1] = '\0';
 		strncpy(search.address, buf, sizeof(search.address));
 		break;
+	case PHONE:
+		puts("Please enter phone number for search");
+		printf("> ");
+		fgets(buf, sizeof(buf), stdin);
+		for(i = 0; buf[i] != '\n'; i++) {
+			search.phone[i] = buf[i] - '0';
+		}
+		search.phone[i] = END_OF_PHONE_NUMBER;
+		break;
 	}
 
 	fp = fopen(filename, "r");
@@ -242,6 +280,7 @@ int search(ADDRESS_BOOK config)
 		return -1;
 	}
 
+	puts("=========================");
 	for(count = 0;;) {
 		match_flag = 0;
 		if(fgets(buf, sizeof(buf), fp) == 0) break;
@@ -267,21 +306,31 @@ int search(ADDRESS_BOOK config)
 			if(!strcmp(search.address, data.address))
 				match_flag = 1;
 			break;
+		case PHONE:
+			for(i = 0; search.phone[i] != END_OF_PHONE_NUMBER && data.phone[i] != END_OF_PHONE_NUMBER; i++) {
+				phone_flag = 0;
+				if(search.phone[i] != data.phone[i]) break;
+				phone_flag = 1;
+			}
+			if(phone_flag)
+				match_flag = 1;
+			break;
 		}
 		if(match_flag != 0) {
 			count++;
-			puts("=========================");
 			puts("Match data!");
-			printf("ID : Name : Address\n");
-			printf("%d : %s : %s\n", data.no, data.name, data.address);
-			puts("=========================");
+			printf("ID  : Name : Address : Phone number\n");
+			printf("%3d : %s : %s : ", data.no, data.name, data.address);
+			for(i = 0; data.phone[i] != END_OF_PHONE_NUMBER; i++) {
+				printf("%d", data.phone[i]);
+			}
+			printf("\n");
 		}
 	}
 	if(count == 0) {
-		puts("=========================");
 		puts("Not found!");
-		puts("=========================");
 	}
+	puts("=========================");
 	fclose(fp);
 	return 0;
 }
@@ -290,6 +339,7 @@ struct address_data decode_data(char *str)
 {
 	struct address_data ret;
 	char *p, *begin;
+	int i;
 
 	p = strchr(str, ',');
 	if(p == NULL) {
@@ -317,10 +367,46 @@ struct address_data decode_data(char *str)
 		return ret;
 	}
 	begin = ++p;
-	p = strchr(begin, '\n');
+	p = strchr(begin, ',');
 	*p = '\0';
 	strcpy(ret.address, begin);
+	begin = ++p;
+	p = strchr(begin, '\n');
+	if(p == NULL) {
+		ret.no = 0;
+		ret.name[0] = '\0';
+		ret.address[0] = '\0';
+		return ret;
+	}
+	*p = '\0';
+	for(i = 0; begin[i] != '\0'; i++) {
+		if(i > sizeof(ret.phone)/sizeof(int)) break;
+		ret.phone[i] = begin[i] - '0';
+	}
+	ret.phone[i] = END_OF_PHONE_NUMBER;
 
 	return ret;
+}
+
+int show_status(ADDRESS_BOOK config)
+{
+	FILE *fp;
+	int record;
+	char buf[1024];
+
+	fp = fopen(config.filename, "r");
+	if(!fp) {
+		fprintf(stderr, "Error: file open [%s]\n", config.filename);
+		return -1;
+	}
+	printf("=====================================\n");
+	for(record = 0; ;) {
+		if(fgets(buf, sizeof(buf), fp) == 0) break;
+		record ++;
+	}
+	printf("Count of record: %d\n", record);
+	printf("=====================================\n");
+	fclose(fp);
+	return 0;
 }
 
