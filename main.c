@@ -1,6 +1,3 @@
-
-#include <stdio.h>
-
 #include "address.h"
 
 int main(int argc, char *argv[])

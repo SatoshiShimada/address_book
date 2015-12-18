@@ -11,6 +11,7 @@ all: $(OBJ)
 
 $.o:
 	$(CC) $(CFLAGS) %.c
+
 .PHONY: clean
 clean:
 	rm -f *.o
